@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Music Sync</title>
+
+<style>
+body {
+    margin: 0;
+    padding: 25px;
+    background: #111;
+    color: white;
+    font-family: Arial, sans-serif;
+    text-align: center;
+}
+
+h1 {
+    margin-bottom: 25px;
+}
+
+button {
+    padding: 15px 30px;
+    font-size: 20px;
+    border: 0;
+    border-radius: 12px;
+    background: #333;
+    color: white;
+}
+
+.status {
+    margin-top: 15px;
+}
+
+.meters {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 35px;
+}
+
+.meter {
+    width: 80px;
+}
+
+.bar {
+    height: 220px;
+    background: #222;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+}
+
+.fill {
+    width: 100%;
+    height: 0%;
+    transition: height 0.05s linear;
+}
+
+#bass {
+    background: #ff1744;
+}
+
+#mid {
+    background: #ff9100;
+}
+
+#treble {
+    background: #00e676;
+}
+
+.label {
+    margin-top: 10px;
+    font-size: 18px;
+}
+
+.value {
+    margin-top: 5px;
+    color: #aaa;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🎵 MUSIC SYNC</h1>
+
+<button id="start">🎤 Microfoon starten</button>
+
+<div id="status" class="status">
+Microfoon uit
+</div>
+
+<div class="meters">
+
+    <div class="meter">
+        <div class="bar">
+            <div id="bass" class="fill"></div>
+        </div>
+        <div class="label">BASS</div>
+        <div id="bassValue" class="value">0%</div>
+    </div>
+
+    <div class="meter">
+        <div class="bar">
+            <div id="mid" class="fill"></div>
+        </div>
+        <div class="label">MIDS</div>
+        <div id="midValue" class="value">0%</div>
+    </div>
+
+    <div class="meter">
+        <div class="bar">
+            <div id="treble" class="fill"></div>
+        </div>
+        <div class="label">TREBLE</div>
+        <div id="trebleValue" class="value">0%</div>
+    </div>
+
+</div>
+
+<script>
+
+let audioContext;
+let analyser;
+let microphone;
+let dataArray;
+
+document.getElementById("start").onclick = async () => {
+
+    try {
+
+        const stream =
+            await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false
+                }
+            });
+
+        audioContext = new AudioContext();
+
+        analyser = audioContext.createAnalyser();
+
+        analyser.fftSize = 4096;
+        analyser.smoothingTimeConstant = 0.65;
+
+        microphone =
+            audioContext.createMediaStreamSource(stream);
+
+        microphone.connect(analyser);
+
+        dataArray =
+            new Uint8Array(analyser.frequencyBinCount);
+
+        document.getElementById("status").innerText =
+            "🟢 Microfoon actief";
+
+        analyse();
+
+    } catch (error) {
+
+        document.getElementById("status").innerText =
+            "❌ " + error;
+
+    }
+
+};
+
+
+function analyse() {
+
+    analyser.getByteFrequencyData(dataArray);
+
+    let bass = 0;
+    let mid = 0;
+    let treble = 0;
+
+    let bassCount = 0;
+    let midCount = 0;
+    let trebleCount = 0;
+
+    for (let i = 0; i < dataArray.length; i++) {
+
+        const frequency =
+            i * audioContext.sampleRate /
+            analyser.fftSize;
+
+        const value = dataArray[i] / 255;
+
+        if (frequency >= 30 && frequency < 160) {
+            bass += value;
+            bassCount++;
+        }
+
+        else if (frequency >= 160 && frequency < 2000) {
+            mid += value;
+            midCount++;
+        }
+
+        else if (frequency >= 2000 && frequency < 12000) {
+            treble += value;
+            trebleCount++;
+        }
+    }
+
+    bass =
+        bassCount ? bass / bassCount : 0;
+
+    mid =
+        midCount ? mid / midCount : 0;
+
+    treble =
+        trebleCount ? treble / trebleCount : 0;
+
+    bass = Math.min(100, bass * 180);
+    mid = Math.min(100, mid * 180);
+    treble = Math.min(100, treble * 180);
+
+    document.getElementById("bass").style.height =
+        bass + "%";
+
+    document.getElementById("mid").style.height =
+        mid + "%";
+
+    document.getElementById("treble").style.height =
+        treble + "%";
+
+    document.getElementById("bassValue").innerText =
+        Math.round(bass) + "%";
+
+    document.getElementById("midValue").innerText =
+        Math.round(mid) + "%";
+
+    document.getElementById("trebleValue").innerText =
+        Math.round(treble) + "%";
+
+    requestAnimationFrame(analyse);
+}
+
+</script>
+
+</body>
+</html>
